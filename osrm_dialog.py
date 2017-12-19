@@ -727,8 +727,8 @@ class OSRM_access_Dialog(QtGui.QDialog, FORM_CLASS_a, TemplateOsrm):
             pts = self.get_points_from_canvas()
         elif 'selecting' in self.comboBox_method.currentText():
             layer = self.comboBox_pointlayer.currentLayer()
-            pts, _ = get_coords_ids(
-                layer, '', on_selected=self.checkBox_selectedFt.isChecked())
+            pts, ptids = get_coords_ids(
+                layer, 'ID', on_selected=self.checkBox_selectedFt.isChecked())  #HGP: Using fix ID-column here!
             pts = tuple(pts)
 
         if not pts:
@@ -741,7 +741,7 @@ class OSRM_access_Dialog(QtGui.QDialog, FORM_CLASS_a, TemplateOsrm):
             max_time + 1) + interval_time, interval_time)][:nb_inter])
 
         self.make_prog_bar()
-        self.max_points = 1500 if len(pts) == 1 else 500
+        self.max_points =  5000 # 1500 if len(pts) == 1 else 500
         self.polygons = []
 
         pts = [{"point": pt, "max": max_time, "levels": levels,
@@ -760,14 +760,15 @@ class OSRM_access_Dialog(QtGui.QDialog, FORM_CLASS_a, TemplateOsrm):
         if len(self.polygons) == 1:
             self.polygons = self.polygons[0]
         else:
-            self.polygons = np.array(self.polygons).transpose().tolist()
+            self.polygons = np.array(self.polygons).transpose().tolist() #HGP: ravel
             self.polygons = \
                 [QgsGeometry.unaryUnion(polys) for polys in self.polygons]
 
         isochrone_layer = QgsVectorLayer(
             "MultiPolygon?crs=epsg:4326&field=id:integer"
             "&field=min:integer(10)"
-            "&field=max:integer(10)",
+            "&field=max:integer(10)"
+            "&field=origid:integer(10)",
             "isochrone_osrm_{}".format(self.nb_isocr), "memory")
         data_provider = isochrone_layer.dataProvider()
         # Add the features to the layer to display :
@@ -779,8 +780,7 @@ class OSRM_access_Dialog(QtGui.QDialog, FORM_CLASS_a, TemplateOsrm):
                 continue
             ft = QgsFeature()
             ft.setGeometry(poly)
-            ft.setAttributes(
-                [i, levels[i] - interval_time, levels[i]])
+            ft.setAttributes([i, levels[i] - interval_time, levels[i], ptids[i % len(pts)]])
             features.append(ft)
         data_provider.addFeatures(features[::-1])
         self.nb_isocr += 1
